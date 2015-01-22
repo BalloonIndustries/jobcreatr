@@ -1,0 +1,104 @@
+<?php
+
+/**
+ * Implements hook_nap_handler().
+ */
+function uc_nap_nap_handler() {
+  return array(
+    // The display name of this module.
+    'name' => 'Node Access Product for Ubercart',
+    // The display name of what we're integrating.
+    'integration' => 'Ubercart',
+    // The short name of the recurring module (FALSE for none).
+    'recurring module' => 'uc_recurring',
+    // The parent path of the settings page.
+    'settings path' => 'admin/store/settings',
+    // The parent path of the reports page.
+    'reports path' => 'admin/store',
+  );
+}
+
+/**
+ * Implements hook_enable().
+ */
+function uc_nap_enable() {
+  drupal_load('module', 'nap');
+  nap_notify('enable', 'uc_nap');
+}
+
+/**
+ * Implements hook_disable().
+ */
+function uc_nap_disable() {
+  drupal_load('module', 'nap');
+  nap_notify('disable', 'uc_nap');
+}
+
+/**
+ * Implements hook_uc_order().
+ */
+function uc_nap_uc_order($op, $order, $status) {
+  if ($op == 'update' && $status == 'payment_received') {
+
+    if (module_exists("uc_recurring")) {
+      // Get recurring dates.
+      $dates = array();
+      $fees = uc_recurring_get_fees($order, TRUE);
+      foreach ($fees as $fee) {
+        $dates[$fee->order_product_id][] = $fee->next_charge;
+      }
+      // Reduce to the earliest dates.
+      foreach ($dates as $key => $value) {
+        $dates[$key] = min($value);
+      }
+    }
+
+   // Work out recurring dates.
+    foreach ($order->products as $i => &$node) {
+      if (isset($dates[$node->order_product_id])) {
+        // There is a next charge date.
+        $node->nap_recurring_date = strftime('%Y-%m-%d %H:%M:%S', $dates[$node->order_product_id]);
+      }
+      else {
+        // No next charge date.
+        $node->nap_recurring_date = NULL;
+      }
+    }
+
+    nap_save_purchase($order->order_id, $order->uid, $order->products);
+  }
+}
+
+/**
+ * Implements hook_nap_form_is_product().
+ */
+function uc_nap_nap_form_is_product($form, $form_state, $form_id) {
+  return !empty($form['#node']) ? uc_product_is_product($form['#node']) : FALSE;
+}
+
+/**
+ * Implements hook_nap_save_purchase().
+ */
+function uc_nap_nap_save_purchase($nap_purchases, $nap_transaction) {
+  if (module_exists('rules')) {
+    $order = uc_order_load($nap_transaction->txn_id);
+    rules_invoke_event('uc_nap_purchase', $order);
+  }
+}
+
+/**
+ * Implements hook_rules_event_info().
+ */
+function uc_nap_rules_event_info() {
+  $events['uc_nap_purchase'] = array(
+    'label' => t('Order placed containing at least one NAP product.'),
+    'group' => t('Order'),
+    'variables' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+    ),
+  );
+  return $events;
+}

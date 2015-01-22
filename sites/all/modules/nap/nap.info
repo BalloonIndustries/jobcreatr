@@ -1,0 +1,11 @@
+name = Node Access Product
+description = "Node Access Product.  Provides 'Node Access' options for products, whereby a user who completes a purchase of a product is given 'Node Access' to some content.  You must activate 'Node Access Product for e-Commerce' or 'Node Access Product for Ubercart' as well."
+package = "Node Access Product"
+core = 7.x
+dependencies[] = node_access_rebuild_bonus
+; Information added by drupal.org packaging script on 2012-08-20
+version = "7.x-1.0"
+core = "7.x"
+project = "nap"
+datestamp = "1345434128"
+

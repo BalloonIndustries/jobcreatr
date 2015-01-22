@@ -1,0 +1,12 @@
+name = Node Access Product for Ubercart
+description = "Integrates Node Access Product with Ubercart."
+package = "Node Access Product"
+dependencies[] = nap
+dependencies[] = uc_product
+core = 7.x
+; Information added by drupal.org packaging script on 2012-08-20
+version = "7.x-1.0"
+core = "7.x"
+project = "nap"
+datestamp = "1345434128"
+

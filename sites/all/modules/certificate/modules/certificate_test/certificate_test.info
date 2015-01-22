@@ -1,0 +1,11 @@
+name = Certificate tests
+description = Tests for the Certificate module
+dependencies[] = certificate
+
+
+; Information added by drupal.org packaging script on 2013-04-17
+version = "7.x-2.0-beta4"
+core = "7.x"
+project = "certificate"
+datestamp = "1366216518"
+

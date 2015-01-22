@@ -1,0 +1,1586 @@
+<?php
+
+/**
+ * @file
+ * The Node Access Product module.
+ *
+ * Creates 'Node Access' options for users who purchase products which grant
+ * view access to content, either by view, category, or node.
+ * Can be used with 'recurring' products to create a subscription system to your
+ * website.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function nap_permission() {
+  return array(
+    'edit NAP options for products' => array(
+      'title' => t('Create and edit NAP products'),
+      'description' => t('Configure products.'),
+    ),
+    'administer NAP settings' => array(
+      'title' => t('Administer NAP'),
+      'description' => t('Configure the module.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function nap_init() {
+  if (!node_access_rebuild_bonus_will_process()) {
+    drupal_set_message(
+      t(
+        'Node access product requires you turn on ajax/cron processing in '
+        . '<a href="!config">Node access rebuild bonus</a> configuration',
+        array('!config' => 'admin/settings/node_access_rebuild_bonus')
+      ),
+      'error'
+    );
+  }
+}
+
+/**
+ * Generate a list of Node Access Products for store admins.
+ *
+ * @todo: what happens on this page if a nap is deleted?
+ *
+ * @return
+ *   $form - a Forms API form filled with data about the Node Access Products.
+ */
+function nap_list($form_state, $handler) {
+  drupal_add_css(
+    drupal_get_path('module', 'nap') . '/nap.css',
+    'module',
+    'all',
+    TRUE
+  );
+  // Get a list of node access products.
+  $pdates = db_query("SELECT DISTINCT nid FROM {nap_products}");
+  // For each product create a fieldset:
+  foreach ($pdates as $nap) {
+    // CBF changing all the accessors below from array to object.
+    $nap = (array)$nap;
+
+    // Write the name of the product plus view|edit links.
+    $node = node_load($nap['nid']);
+    $form['nap_fieldset_' . $node->nid] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array('class' => array('nap_fieldset')),
+      '#title' => t($node->title),
+      '#weight' => $node->nid,
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $link_to_node = "(" . l('view', 'node/' . $node->nid, array()) . "|";
+    $link_to_node .= l('edit', 'node/' . $node->nid . '/edit', array()) . ")";
+    $access_lists = array();
+    $settings = nap_get_nap_settings($nap['nid']);
+
+    // Write a list of categories and nodes for the product.
+    if ($settings['categories']) {
+      $categories_list = array();
+      foreach ($settings['categories'] as $tid) {
+        $a_term = taxonomy_term_load($tid);
+        array_push($categories_list, $a_term->name);
+      }
+      array_push(
+        $access_lists,
+        theme('item_list', array('items' => $categories_list, 'title' => t('Categories')))
+      );
+    }
+
+    if ($settings['nodes']) {
+      $nodes_list = array();
+      foreach ($settings['nodes'] as $nid) {
+        $a_node = node_load($nid);
+        array_push($nodes_list, l($a_node->title, 'node/' . $nid, array()));
+      }
+      array_push(
+        $access_lists,
+        theme('item_list', array('items' => $nodes_list, 'title' => t('Nodes')))
+      );
+    }
+
+    if ($settings['view']) {
+        $view = views_get_view($settings['view']);
+        $view_output = '';
+        if ($view->url) {
+          if ($settings['view_args']) {
+            $view_args = '/' . implode(
+              '/',
+              array_map(trim, explode(',', $settings['view_args']))
+            );
+          }
+          else {
+            $view_args = '';
+          }
+          $view_output .= l($view->name, $view->url . $view_args);
+        }
+        else {
+          $view_output .= $view->name;
+          if ($settings['view_args']) {
+            $view_output .= ' ' . t('args') . ': <em>' . $settings['view_args'] . '</em>';
+          }
+        }
+      array_push(
+        $access_lists,
+        theme('item_list', array('items' => array($view_output), 'title' => t('View')))
+      );
+    }
+
+    // Write a list of users who have purchased this and their expiry, and
+    // whether it's expired or not.
+    $user_result = db_query(
+      "SELECT l.uid, l.purchase_date, r.expiry_date"
+      . " FROM {nap_transactions} l"
+      . " INNER JOIN {nap_purchases} r ON l.txn_id = r.txn_id"
+      . " WHERE r.product_nid = :nid ORDER BY r.expiry_date",
+      array(':nid' => $node->nid)
+    );
+    $users_list = array();
+    foreach ($user_result as $user_row) {
+      $user_item = '';
+      $user_item .= t(
+        "!customer on !date",
+        array(
+          '!customer' => theme(
+            'username',
+            user_load($user_row->uid)
+          ),
+          '!date' => $user_row->purchase_date,
+        )
+      );
+      if (
+        $user_row->expiry_date
+        && $user_row->expiry_date != '0000-00-00 00:00:00'
+      ) {
+        $user_item .= ' (' . t('expires') . ': ' . $user_row->expiry_date . ')';
+      }
+      array_push($users_list, $user_item);
+    }
+
+    $output = "<div class='link_to_node'>" . $link_to_node . "</div>";
+    $output .= '<div class="access">'
+             . theme(
+                 'item_list',
+                 array(
+                   'items' => $access_lists,
+                   'title' => t('Purchases of this node access product give access to'),
+                 )
+               )
+               . '</div>';
+    $output .= '<div class="users">'
+              . theme(
+                  'item_list',
+                  array(
+                    'items' => $users_list,
+                    'title' => t('Users who have purchased this node access product'),
+                  )
+                )
+                . '</div>';
+    $form['nap_fieldset_' . $node->nid]['access'] = array(
+      '#value' => $output,
+    );
+  }
+  return $form;
+}
+
+/**
+ * Module configuration settings.
+ *
+ * @return
+ *   A system settings form.
+ */
+function nap_admin($form, &$form_state, $handler) {
+  $handlers = variable_get('nap_handlers', array());
+  if (module_exists('taxonomy')) {
+    $vocabs = nap_get_vocabs();
+    if ($vocabs) {
+      $terms = nap_get_terms($vocabs);
+    }
+  }
+  $types = nap_get_types();
+  $form['admin-intro'] = array(
+    '#value' =>
+      "<p>"
+      . t(
+        "Use this form to configure your <em>node access product</em> settings."
+      )
+      . "</p>",
+    '#weight' => -12,
+  );
+  $form['gen_fieldset'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('gen_fieldset')),
+    '#title' => t('General settings'),
+    '#weight' => -10,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  $form['gen_fieldset']['nap_use_purchase_date'] = array(
+    '#type' => 'radios',
+    '#title' => t(
+      "A user may purchase a node access product granting them access to some"
+      . " content, after which the access options on the <em>edit</em> page for"
+      . " the node access product could be changed. How should the user's access"
+      . " rights be treated?"
+    ),
+    '#options' => array(
+      0 => t(
+        "User's access rights reflect the node access product's latest"
+        . " settings."
+      ),
+      1 => t(
+        "User's access rights reflect the settings of the node access product"
+        . " at the time of purchase."
+      ),
+    ),
+    '#default_value' => variable_get('nap_use_purchase_date', 0),
+    '#description' => t(
+      "IMPORTANT: Using the time of purchase relies on the products having"
+      . " revisions enabled to work correctly."
+    ),
+    '#weight' => 1,
+  );
+
+  $form['gen_fieldset']['nap_priority'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Priority'),
+    '#size' => 3,
+    '#maxlength' => 9,
+    '#default_value' =>
+      is_numeric($priority = variable_get('nap_priority', 0)) ?
+        $priority : 0,
+    '#weight' => 2,
+    '#description' => t(
+      "It is recommended to leave this set to 0."
+    ),
+  );
+  $form['gen_fieldset']['nap_author_view'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>view</em> access to node authors'),
+    '#default_value' => variable_get('nap_author_view', 1),
+    '#description' => t('Grants <em>view</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['gen_fieldset']['nap_author_update'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>edit</em> access to node authors'),
+    '#default_value' => variable_get('nap_author_update', 1),
+    '#description' => t('Grants <em>edit</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['gen_fieldset']['nap_author_delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>delete</em> access to node authors'),
+    '#default_value' => variable_get('nap_author_delete', 1),
+    '#description' => t('Grants <em>delete</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['gen_fieldset']['nap_limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Max nodes to process in a single request'),
+    '#size' => 3,
+    '#maxlength' => 9,
+    '#default_value' => intval(variable_get('nap_limit', 50)),
+    '#description' => t(
+      "When a node access product is saved, this is how many nodes"
+      . " to check at a time when discovering purchasable nodes to avoid timeouts."
+    ),
+    '#weight' => 4,
+  );
+  /*
+  // I don't think this is needed.
+  $form['gen_fieldset']['nap_unused'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Set grants even when nobody has purchased the product.'),
+    '#default_value' => variable_get('nap_unused', 1),
+    '#description' => t('This will automatically make the purchasable nodes private shortly after the product is created.'),
+  );
+  */
+  $form['node_fieldset'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('node_fieldset')),
+    '#title' => t("<em>By node</em> settings"),
+    '#weight' => -8,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#description' => t(
+      "These settings refer to which nodes will be displayed as options for"
+      . " granting access to on the node access products' <em>add</em> and"
+      . " <em>edit</em> pages.  This is useful for restricting which nodes are"
+      . " displayed to the user administering the product, and for performance."
+    ),
+  );
+
+  $form['node_fieldset']['nap_show_bynodes'] = array(
+    '#type' => 'checkbox',
+    '#title' => t(
+      "Show <em>by node</em> options on the <em>add</em> and <em>edit</em> pages"
+    ),
+    '#default_value' => variable_get('nap_show_bynodes', 1),
+    '#weight' => 0,
+  );
+  if ($types) {
+    $form['node_fieldset']['nap_content_types'] = array(
+      '#type' => 'select',
+      '#title' => t(
+        "Restrict displayed nodes to only these <em>content types</em>"
+      ),
+      '#default_value' => variable_get('nap_content_types', array()),
+      '#options' => $types,
+      '#description' => t(
+        "If no content type is selected, nodes of all types will be displayed."
+      ),
+      '#multiple' => TRUE,
+      '#size' => min(6, count($types) + 1),
+      '#weight' => 1,
+    );
+  }
+  else {
+    $form['node_fieldset']['nap_no_types'] = array(
+      '#value' => '<em>' . t(
+        "There are currently no content types to choose from."
+      ) . '</em>',
+      '#weight' => 1,
+    );
+  }
+  if ($terms) {
+    $form['node_fieldset']['nap_taxonomy_terms'] = array(
+      '#type' => 'select',
+      '#title' => t(
+        "Restrict displayed nodes to only these <em>taxonomy terms</em>"
+      ),
+      '#default_value' => variable_get('nap_taxonomy_terms', array()),
+      '#options' => $terms,
+      '#description' => t(
+        "If no taxonomy terms are selected, nodes from all categories will be"
+        . " displayed."
+      ),
+      '#multiple' => TRUE,
+      '#size' => min(6, count($terms) + 1),
+      '#weight' => 2,
+    );
+    $form['node_fieldset']['nap_show_children'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display nodes from children of these terms'),
+      '#default_value' => variable_get('nap_show_children', 1),
+      '#weight' => 3,
+    );
+  }
+  else {
+    $form['node_fieldset']['nap_no_terms'] = array(
+      '#value' => '<em>' . t("There are currently no terms to choose from.") . '</em>',
+      '#weight' => 2,
+    );
+  }
+  $form['cats_fieldset'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('cats_fieldset')),
+    '#title' => t("<em>By category</em> Settings"),
+    '#weight' => -6,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#description' => t(
+      "These settings refer to which categories will be displayed as options"
+      . " for granting access to on the node access products' <em>add</em> and"
+      . " <em>edit</em> pages.  This is useful if you have unrelated"
+      . " vocabularies that you would like to omit from being displayed to the"
+      . " user administering the node access product."
+    ),
+  );
+  $form['cats_fieldset']['nap_show_bycats'] = array(
+    '#type' => 'checkbox',
+    '#title' => t(
+      "Show <em>by category</em> options on the <em>add</em> and <em>edit</em> pages"
+    ),
+    '#default_value' => variable_get('nap_show_bycats', 1),
+    '#weight' => 0,
+  );
+  if ($vocabs) {
+    $form['cats_fieldset']['nap_taxonomy_vocabs'] = array(
+      '#type' => 'select',
+      '#title' => t(
+        "Restrict displayed terms to only these <em>taxonomy vocabularies</em>"
+      ),
+      '#default_value' => variable_get('nap_taxonomy_vocabs', ''),
+      '#options' => $vocabs,
+      '#description' => t(
+        "If no taxonomy vocabularies are selected, terms from all vocabularies"
+        . " will be displayed."
+      ),
+      '#multiple' => TRUE,
+      '#size' => min(6, count($vocabs) + 1),
+      '#weight' => 1,
+    );
+    $form['cats_fieldset']['nap_traverse_children'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Also grant access to children of granted categories'),
+      '#default_value' => variable_get('nap_traverse_children', 0),
+      '#weight' => 2,
+    );
+  }
+  else {
+    $form['cats_fieldset']['nap_no_vocabs'] = array(
+      '#value' => '<em>' . t(
+        "There are currently no vocabularies to choose from."
+      ) . '</em>',
+      '#weight' => 1,
+    );
+  }
+
+  if (module_exists('views')) {
+    $form['views_fieldset'] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array('class' => array('views_fieldset')),
+      '#title' => t("<em>By view</em> settings"),
+      '#weight' => -4,
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#description' => t(
+        "These settings refer to whether views will be displayed as options for"
+        . " granting access to on the node access products' <em>add</em> and"
+        . " <em>edit</em> pages."
+      ),
+    );
+    $form['views_fieldset']['nap_show_byviews'] = array(
+      '#type' => 'checkbox',
+      '#title' => t(
+        "Show <em>by view</em> options on the <em>add</em> and <em>edit</em> pages"
+      ),
+      '#default_value' => variable_get('nap_show_byviews', 0),
+      '#weight' => 0,
+    );
+
+    $views = array('' => t('<none>'));
+    $all_views = views_get_all_views();
+    $view_count = 0;
+    foreach ($all_views as $view) {
+      // Only 'node' views that have fields will work for our purpose.
+      if (
+          $view->base_table == 'node'
+          && !empty($view->display['default']->display_options['fields'])
+        ) {
+        $view_count++;
+        if ($view->type == 'Default') {
+          $views[t('Default views')][$view->name] = $view->name;
+        }
+        else {
+          $views[t('Existing views')][$view->name] = $view->name;
+        }
+      }
+    }
+
+    if (count($views) > 1) {
+      $form['views_fieldset']['nap_views'] = array(
+        '#type' => 'select',
+        '#multiple' => TRUE,
+        '#size' => min(6, $view_count + 1),
+        '#title' => t('Restrict displayed views'),
+        '#options' => $views,
+        '#default_value' => variable_get('nap_views', array()),
+        '#description' => t(
+          "If no views are selected, all views will be displayed."
+        ),
+      );
+    }
+
+  }
+
+  if ($handlers[$handler]['recurring module']
+    && module_exists($handlers[$handler]['recurring module'])) {
+    $form['recur_fieldset'] = array(
+      '#type' => 'fieldset',
+      '#attributes' => array('class' => array('recur_fieldset')),
+      '#title' => t("<em>Recurring product</em> settings"),
+      '#weight' => -2,
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#description' => t(
+        "Because the <em>Recurring product</em> module is active, it is possible that a"
+        . " node access product be used in conjunction with recurring products,"
+        . " effectively creating a subscription system.  These settings refer to"
+        . " how node access products should behave in regards to recurring"
+        . " schedules."
+      ),
+    );
+    $form['recur_fieldset']['nap_revoke'] = array(
+      '#type' => 'radios',
+      '#title' => t('What should happen on the <em>expiry</em> of a purchase?'),
+      '#options' => array(
+        0 => t(
+          "User retains access to nodes created prior to expiry of the"
+          . " purchase, but no longer gains access to new nodes."
+        ),
+        1 => t(
+          "Access given prior to expiry of the purchase is revoked."
+        ),
+      ),
+      '#default_value' => variable_get('nap_revoke', 0),
+      '#weight' => 1,
+    );
+  }
+
+  // Add additional submit processing
+  $form['#submit'][] = 'nap_admin_submit';
+
+  return system_settings_form($form);
+}
+
+/**
+ * Submit function for the system settings form for nap.
+ */
+function nap_admin_submit() {
+  node_access_needs_rebuild(TRUE);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function nap_menu() {
+  $items = array();
+  $handlers = variable_get('nap_handlers', array());
+  foreach ($handlers as $handler => $data) {
+    $items[$data['settings path'] . '/nap'] = array(
+      'title' => 'Node access product',
+      'description' => 'Configuration for node access products.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('nap_admin', $handler),
+      'access arguments' => array('administer NAP settings'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+    $items[$data['reports path'] . '/nap'] = array(
+      'title' => 'Node access products list',
+      'description' => 'Listing of node access products.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('nap_list', $handler),
+      'access arguments' => array('edit NAP options for products'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+  return $items;
+}
+
+/**
+ * Determine if a form is a product edit form.
+ */
+function nap_form_is_product($form, $form_state, $form_id) {
+  $handlers = variable_get('nap_handlers', array());
+  foreach ($handlers as $handler => $data) {
+    $result = module_invoke(
+      $handler,
+      'nap_form_is_product',
+      $form,
+      $form_state,
+      $form_id
+    );
+    if ($result) {
+      return $result;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function nap_form_alter(&$form, &$form_state, $form_id) {
+  if (!user_access('edit NAP options for products')) {
+    // No access to modify these options.
+    return;
+  }
+  if (nap_form_is_product($form, $form_state, $form_id)) {
+    if (variable_get('nap_show_bynodes', 1)) {
+      $nap_show_bynodes = TRUE;
+      $nodes = nap_get_nodelist();
+    }
+    if (variable_get('nap_show_bycats', 1) && module_exists('taxonomy')) {
+      $nap_show_bycats = TRUE;
+      $cats = nap_get_terms(variable_get('nap_taxonomy_vocabs', array()));
+    }
+    if (variable_get('nap_show_byviews', 0) && module_exists('views')) {
+      $nap_show_byviews = TRUE;
+    }
+    if (empty($nap_show_bycats) && empty($nap_show_bynodes) && empty($nap_show_byviews)) {
+      // All options are off - so what's the point?
+      return;
+    }
+    if ($form['nid']['#value']) {
+      $nap_settings = nap_get_nap_settings($form['nid']['#value']);
+    }
+
+    $default_categories = !empty($nap_settings['categories']) ?
+      $nap_settings['categories'] : '';
+    $default_nodes = !empty($nap_settings['nodes']) ?
+      $nap_settings['nodes'] : '';
+    $default_view = !empty($nap_settings['view']) ?
+      $nap_settings['view'] : '';
+    $default_view_args = !empty($nap_settings['view_args']) ?
+      $nap_settings['view_args'] : '';
+
+    $collapse_nap = ($form['nid']['#value'] && empty($nap_settings));
+
+    $nodes_cats_both = t("Select the content that buyers of this product will receive access to.");
+
+    $access_setting = variable_get('nap_use_purchase_date', 0) ?
+      t("If you change these settings it will not affect users who have already purchased this product.  Their accounts will continue to be treated with the old settings.") :
+      t("If you change these settings, any users who have already purchased this product will have their access changed based on the latest settings.");
+
+    $traverse = variable_get('nap_traverse_children', 0) ?
+      t("Child categories are automatically included.") :
+      t("Child categories are not automatically included.");
+
+    $form['product']['nodeaccess'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Node access products'),
+      '#collapsible' => TRUE,
+      '#collapsed' => $collapse_nap,
+      '#weight' => -15,
+    );
+    $form['product']['nodeaccess']['choose'] = array(
+      '#value' => "<span>" . $nodes_cats_both . ' ' . $access_setting . "</span>",
+      '#weight' => 1,
+    );
+    if (!empty($nap_show_bycats)) {
+      if (!empty($cats)) {
+        $form['product']['nodeaccess']['nap_categories'] = array(
+          '#type' => 'select',
+          '#title' => t("By category"),
+          '#default_value' => $default_categories,
+          '#options' => $cats,
+          '#description' => t(
+            'Choosing by category allows you to grant access to groups of'
+            . ' content, even content which has not been created yet.'
+            ) . ' ' . $traverse,
+          '#multiple' => TRUE,
+          '#size' => min(6, count($cats) + 1),
+          '#weight' => 2,
+        );
+      }
+      else {
+        $form['product']['nodeaccess']['nap_categories'] = array(
+          '#value' => '<em class="nap_no_options">' . t(
+            "There are currently no available categories to choose from. You"
+            . " either have no terms, or your configuration settings for node"
+            . " access product do not allow for terms from any current"
+            . " vocabularies to be shown in this list.") . ' </em>',
+          '#weight' => 2,
+        );
+      }
+    }
+    if (!empty($nap_show_bynodes)) {
+      if ($nodes) {
+        $form['product']['nodeaccess']['nap_nodes'] = array(
+          '#type' => 'select',
+          '#title' => t("By node"),
+          '#default_value' => $default_nodes,
+          '#options' => $nodes,
+          '#description' => t('Choose specific nodes to grant access to.'),
+          '#multiple' => TRUE,
+          '#size' => min(6, count($nodes) + 1),
+          '#weight' => 3,
+        );
+      }
+      else {
+        $form['product']['nodeaccess']['nap_nodes'] = array(
+          '#value' => '<em class="nap_no_options">' . t(
+            "There are currently no available nodes to choose from. You either"
+            . " have no published nodes, or your configuration settings for node"
+            . " access product do not allow for any current nodes to be shown"
+            . " in this list.") . ' </em>',
+          '#weight' => 3,
+        );
+      }
+    }
+
+    if (!empty($nap_show_byviews)) {
+      $views = array('' => t('<none>'));
+      $all_views = views_get_all_views();
+      foreach ($all_views as $view) {
+        // Only 'node' views that have fields will work for our purpose.
+        if ($view->base_table == 'node'
+          && !empty($view->display['default']->display_options['fields'])) {
+          $view_restrict = variable_get('nap_views', array());
+          unset($view_restrict['']);
+          if (empty($view_restrict) || isset($view_restrict[$view->name])) {
+            if ($view->type == 'Default') {
+              $views[t('Default views')][$view->name] = $view->name;
+            }
+            else {
+              $views[t('Existing views')][$view->name] = $view->name;
+            }
+          }
+        }
+      }
+      if (count($views) > 1) {
+        $form['product']['nodeaccess']['views'] = array(
+           '#type' => 'fieldset',
+           '#title' => t('By view'),
+           '#collapsible' => TRUE,
+           '#collapsed' => (
+              $default_view == '' && ($nap_show_bycats || $nap_show_bynodes)
+            ),
+          '#weight' => 4,
+        );
+        $form['product']['nodeaccess']['views']['nap_view'] = array(
+          '#type' => 'select',
+          '#title' => t('View'),
+          '#options' => $views,
+          '#default_value' => $default_view,
+          '#description' => t(
+            "Select the view that chooses the nodes that buyers of this product"
+            . " will receive access to."
+          ),
+        );
+        $form['product']['nodeaccess']['views']['nap_view_args'] = array(
+          '#type' => 'textfield',
+          '#title' => t('View arguments'),
+          '#default_value' => $default_view_args,
+          '#required' => FALSE,
+          '#description' => t(
+            'Provide a comma separated list of arguments to pass to the view.'
+          ),
+        );
+      }
+    }
+
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function nap_node_insert($node) {
+  nap_insert_or_update_node($node);
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function nap_node_update($node) {
+  nap_insert_or_update_node($node);
+}
+
+/**
+ * Helper for nap_node_insert() and nap_node_update().
+ */
+function nap_insert_or_update_node($node) {
+  if (
+      isset($node->nap_nodes)
+      || isset($node->nap_categories)
+      || isset($node->nap_view)
+  ) {
+    nap_save(
+      $node->nid,
+      $node->vid,
+      !empty($node->nap_nodes) ? $node->nap_nodes : array(),
+      !empty($node->nap_categories) ? $node->nap_categories : array(),
+      !empty($node->nap_view) ? $node->nap_view : NULL,
+      !empty($node->nap_view_args) ? $node->nap_view_args : NULL
+    );
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function nap_node_delete($node) {
+  if (
+     isset($node->nap_nodes)
+      || isset($node->nap_categories)
+      || isset($node->nap_view)
+  ) {
+    // Update the nap table with no entries.
+    nap_save($node->nid, $node->vid);
+    nap_create_update_queue(nap_get_grants($node->nid));
+  }
+}
+
+/**
+ * Implements hook_node_grants().
+ */
+function nap_node_grants($account, $op) {
+  $grants = array();
+  if ($op == 'view') {
+
+    $sql = "
+      SELECT product_nid, product_vid FROM {nap_purchases} l
+      INNER JOIN {nap_transactions} r ON l.txn_id = r.txn_id
+      WHERE r.uid = :uid
+      ";
+    $args[':uid'] = $account->uid;
+    if (!variable_get('nap_revoke', 0)) {
+      $sql .= " AND ("
+              . "expiry_date > :date OR expiry_date = '0000-00-00 00:00:00' "
+              . "OR expiry_date IS NULL "
+              . ")";
+      $args[':date'] = date('Y-m-d H:i:s');
+    }
+    $results = db_query($sql, $args);
+
+    $use_purchase_date = variable_get('nap_use_purchase_date', 0);
+    foreach ($results as $purchases) {
+      $grants['nap'][] = $use_purchase_date ?
+        $purchases['product_vid'] : $purchases->product_nid;
+    }
+
+  }
+  $grants['nap_author'][] = $account->uid;
+  return $grants;
+}
+
+/**
+ * Implements hook_node_access_records().
+ */
+function nap_node_access_records($node) {
+
+  $priority = variable_get('nap_priority', 0);
+  if (!is_numeric($priority)) {
+    $priority = 0;
+  }
+  if ($gids = nap_get_grants($node->nid)) {
+    foreach ($gids as $gid) {
+      $grants[] = array(
+        'realm' => 'nap',
+        'gid' => $gid,
+        'priority' => $priority,
+        'grant_view' => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+      );
+    }
+  }
+  /*
+  // I don't think this is needed.
+  if (variable_get('nap_unused', 1)) {
+    // This is a dummy grant in order to automatically deny node access.
+    $grants[] = array(
+      'realm' => 'nap',
+      'gid' => 0,
+      'priority' => $priority,
+      'grant_view' => 1,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    );
+  }
+  */
+  if (!empty($grants)) {
+    // Store author grants according to configuration.
+    $grant_view = variable_get('nap_author_view', 1);
+    $grant_update = variable_get('nap_author_update', 1);
+    $grant_delete = variable_get('nap_author_delete', 1);
+    if ($grant_view || $grant_update || $grant_delete) {
+      $grants[] = array(
+        'realm' => 'nap_author',
+        'gid' => $node->uid,
+        'priority' => $priority,
+        'grant_view' => $grant_view,
+        'grant_update' => $grant_update,
+        'grant_delete' => $grant_delete,
+      );
+    }
+
+    return $grants;
+  }
+  return NULL;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function nap_cron() {
+  $safe_entry_ids = array();  // An array of ID's we want to keep.
+  $now = date('Y-m-d H:i:s');
+  // Save entries that apply to each purchase.
+  // Get all the purchase dates for 'active' purchases.
+  $pdates = db_query("SELECT purchase_date
+    FROM {nap_transactions} l
+    INNER JOIN {nap_purchases} r ON l.txn_id = r.txn_id
+    WHERE r.expiry_date < :now OR r.expiry_date = '0000-00-00 00:00:00' OR r.expiry_date IS NULL", array(':now' => $now));
+  // For each date.
+  foreach ($pdates as $active_naps) {
+    $last_node_id = -1;
+    // Get most recent entry_id for each nid as at purchase date.
+    $max_result = db_query("SELECT entry_date, entry_id, nid, vid
+      FROM {nap_products}
+      WHERE entry_date < :pdate
+      ORDER BY nid, entry_date DESC", array(':pdate' => $active_naps->purchase_date));
+    foreach ($max_result as $max_entry) {
+      if ($max_entry->nid != $last_node_id) {
+        $last_node_id = $max_entry->nid;
+        array_push($safe_entry_ids, $max_entry->entry_id);
+      }
+    }
+  }
+  // Save entries that apply to now.
+  $last_node_id = -1;
+  // Get most recent entry_id for each nid as of now.
+  $max_result = db_query("SELECT entry_date, entry_id, nid
+    FROM {nap_products}
+    WHERE entry_date < :now
+    ORDER BY nid, entry_date DESC", array(':now' => $now));
+  foreach ($max_result as $max_entry) {
+    if ($max_entry->nid != $last_node_id) {
+      $last_node_id = $max_entry->nid;
+      array_push($safe_entry_ids, $max_entry->entry_id);
+    }
+  }
+  // Delete entries that aren't in the safe list.
+  $safe_entry_ids = array_unique($safe_entry_ids);
+  if (!empty($safe_entry_ids)) {
+  $delete = db_query("DELETE
+    FROM {nap_products}
+    WHERE entry_id NOT IN (:safe)", array(':safe' => $safe_entry_ids));
+  }
+}
+
+/**
+ * Inserts a record for the latest settings into the {nap_products} table
+ * And then rebuilds the access records for all nodes on the site.
+ *
+ * @param $nid
+ *   The nid of the Node Access Product
+ * @param $vid
+ *   The vid of the Node Access Product
+ * @param $nodes
+ *   Array of nids this product allows access to.
+ * @param $categories
+ *   Array of tids this product allows access to.
+ * @param $view
+ *   String identifying a view by name.
+ * @param $view_args
+ *   String of view arguments entered by node author.
+ */
+function nap_save($nid, $vid, $nodes = array(), $categories = array(), $view = NULL, $view_args = NULL) {
+  if ($categories) {
+    // Strip NULL/empty/FALSE values.
+    $categories = array_filter($categories);
+  }
+  if ($nodes) {
+    // Strip NULL/empty/FALSE values.
+    $nodes = array_filter($nodes);
+  }
+  // Convert into serialized strings.
+  $categories = serialize($categories);
+  $nodes = serialize($nodes);
+  // Check if the previous entry for this nid has the same categories and nodes.
+  $latest = db_query(
+    "SELECT max(entry_date) as maxdate"
+    . " FROM {nap_products}"
+    . " WHERE nid = :nid GROUP BY nid",
+    array(':nid' => $nid)
+  )->fetchField();
+  if (!empty($latest)) {
+    $previous = db_query(
+      "SELECT entry_id"
+      . " FROM {nap_products}"
+      . " WHERE entry_date = :latest"
+      . " AND nid = :nid"
+      . " AND categories = :categories"
+      . " AND nodes = :nodes"
+      . " AND view = :view"
+      . " AND view_args = :view_args",
+      array(
+        ':latest' => $latest,
+        ':nid' => $nid,
+        ':categories' => $categories,
+        ':nodes' => $nodes,
+        ':view' => $view,
+        ':view_args' => $view_args,
+      )
+    )->fetchField();
+  }
+
+  if (empty($previous)) {
+    // Previous record does not match, means there are changes we need to save.
+    db_query(
+      "INSERT"
+      . " INTO {nap_products}"
+      . " (nid, vid, entry_date, categories, nodes, view, view_args)"
+      . " VALUES (:nid, :vid, :now, :categories, :nodes, :view, :view_args)",
+      array(
+        ':nid' => $nid,
+        ':vid' => $vid,
+        ':now' => date('Y-m-d H:i:s'),
+        ':categories' => $categories,
+        ':nodes' => $nodes,
+        ':view' => $view,
+        ':view_args' => $view_args,
+      )
+    );
+    //node_access_needs_rebuild();
+    nap_create_update_queue($nid);
+  }
+}
+
+/**
+ * Create an update queue for a node.
+ */
+function nap_create_update_queue($nid) {
+  $settings = nap_get_nap_settings($nid);
+  $list = array();
+  if ($settings['nodes']) {
+    $list = $settings['nodes'] + $list;
+  }
+  if ($settings['categories']) {
+    $list = nap_get_nids_from_tids($settings['categories']) + $list;
+  }
+  if ($settings['view']) {
+    $list = nap_get_nids_from_view(
+      $settings['view'],
+      $settings['view_args']
+    ) + $list;
+  }
+  if (!empty($list)) {
+    $list = array_unique($list);
+    node_access_rebuild_bonus_queue($list);
+  }
+}
+
+/**
+ * Returns the settings of a Node Access Product.
+ *
+ * @param $nid
+ *   The nid of the Node Access Product
+ * @param $datetime
+ *   String date in 'Y-m-d H:i:s' format.  Get settings from this date. Leave
+ *   as NULL to use current datetime.
+ * @return
+ *   Array containing the settings as set by the Node Access Product's author.
+ *   - $settings['nodes'] is either NULL or contains array pairs in the format
+ *     $nid->nid
+ *   - $settings['categories'] is either NULL or contains array pairs in the
+ *     format $tid->tid
+ *   - $settings['view'] (view name) and $settings['view_args'] will be strings.
+ */
+function nap_get_nap_settings($nid, $datetime = NULL) {
+  $settings = array();
+  if ($datetime == NULL) {
+    // Set $datetime to 'now'.
+    $datetime = date('Y-m-d H:i:s');
+  }
+  $settings_result = db_query_range(
+    "SELECT categories, nodes, view, view_args"
+    . " FROM {nap_products}"
+    . " WHERE entry_date < :datetime AND nid = :nid ORDER BY entry_date DESC",
+    0,
+    1,
+    array(
+      ':datetime' => $datetime,
+      ':nid' => $nid,
+    )
+  );
+  $settings = $settings_result->fetchAssoc();
+  if (!empty($settings['nodes'])) {
+    $settings['nodes'] = unserialize($settings['nodes']);
+  }
+  if (!empty($settings['categories'])) {
+    $settings['categories'] = unserialize($settings['categories']);
+  }
+
+  if (
+      empty($settings)
+      || (
+        empty($settings['nodes'])
+        && empty($settings['categories'])
+        && empty($settings['view'])
+      )
+    ) {
+    return FALSE;
+  }
+  return $settings;
+}
+
+/**
+ * Get an array of nids that are returned by the supplied view.
+ *
+ * @param $view_identifier
+ *   A string containing the view name.
+ * @param $view_args
+ *   A string containing comma seperated view arguments.
+ * @return
+ *   The array of nids that the view gives as results.
+ */
+function nap_get_nids_from_view($view_name, $view_args) {
+
+  if ($view = views_get_view($view_name)) {
+
+    // arguments for the view
+    $view_args = $view_args ? array_map(trim, explode(',', $view_args)) : array();
+
+    // We add a display, and let it derive from the 'default' display.
+    // TODO: We should let the user pick a display in the fields settings - sort of requires AHAH...
+    $display = $view->add_display('content_references');
+    $view->set_display($display);
+
+    // TODO from merlinofchaos on IRC : arguments using summary view can defeat the style setting.
+    // We might also need to check if there's an argument, and set *its* style_plugin as well.
+    $view->display_handler->set_option('style_plugin', 'content_php_array_autocomplete');
+    $view->display_handler->set_option('row_plugin', 'fields');
+    // Used in content_plugin_style_php_array::render(), to get
+    // the 'field' to be used as title.
+    $view->display_handler->set_option('content_title_field', 'title');
+
+    // Additional options to let content_plugin_display_references::query()
+    // narrow the results.
+    $options = array(
+      'table' => 'node',
+      'field_string' => 'title',
+      'field_id' => 'nid',
+    );
+    $view->display_handler->set_option('content_options', $options);
+
+    // TODO : for consistency, a fair amount of what's below
+    // should be moved to content_plugin_display_references.
+
+    // We do need title field, so add it if not present (unlikely, but...).
+    $fields = $view->get_items('field', $display);
+    if (!isset($fields['title'])) {
+      $view->add_item($display, 'field', 'node', 'title');
+    }
+
+    // If not set, make all fields inline and define a separator.
+    $options = $view->display_handler->get_option('row_options');
+    if (empty($options['inline'])) {
+      $options['inline'] = drupal_map_assoc(
+        array_keys($view->get_items('field', $display))
+      );
+    }
+    if (empty($options['separator'])) {
+      $options['separator'] = '-';
+    }
+    $view->display_handler->set_option('row_options', $options);
+
+    // Make sure the query is not cached
+    $view->is_cacheable = FALSE;
+
+    // Get the results.
+    $result = array_keys($view->execute_display($display, $view_args));
+
+  }
+  else {
+    $result = FALSE;
+  }
+
+  return $result;
+
+}
+
+/**
+ * Get an array of nids that belong to the supplied tids.
+ */
+function nap_get_nids_from_tids($tids) {
+  $nids_from_tids = array();
+  if ($tids) {
+    $categories = array_unique($tids);
+    if (variable_get('nap_traverse_children', 0)) {
+      // We have to include child terms in this query.
+      $children = db_query(
+        "SELECT tid"
+        . " FROM {taxonomy_term_hierarchy}"
+        . " WHERE parent IN (:cats)",
+        array(':cats' => $categories)
+      );
+      foreach ($children as $child) {
+        if ($child->tid != '') {
+          $categories[] = $child->tid;
+        }
+      }
+    }
+    // Term ID needs to be in $categories.
+    $results = db_query(
+      "SELECT nid FROM {taxonomy_index} WHERE tid IN (:cats)",
+      array(':cats' => $categories)
+    );
+    foreach ($results as $nid_list) {
+      array_push($nids_from_tids, $nid_list->nid);
+    }
+  }
+  return $nids_from_tids;
+}
+
+/**
+ * Get an array of nodes for use in select forms
+ */
+function nap_get_nodelist() {
+global $user;
+  $show_children = variable_get('nap_show_children', 1);
+  $node_types = variable_get('nap_content_types', array());
+  $node_terms = variable_get('nap_taxonomy_terms', array());
+  $arguments = array();
+  $joins = "";
+  $wheres = "";
+  if (array_filter($node_terms) != NULL) {
+    // There is a restriction by terms.
+    if ($show_children) {
+      $children = db_query(
+        "SELECT tid"
+        . " FROM {term_hierarchy}"
+        . " WHERE parent IN (:terms)",
+        array(':terms' => $node_terms)
+      );
+      foreach ($children as $child) {
+        if ($child->tid != '') {
+          array_push($node_terms, $child->tid);
+        }
+      }
+    }
+    // Build the joins for terms.
+    $joins .= " INNER JOIN {term_node} tn ON n.nid = tn.nid";
+    $wheres .= " AND tn.tid IN (:terms) ";
+    $arguments[':terms'] = $node_terms;
+  }
+  if (array_filter($node_types) != NULL) {
+    // There is a restriction by content type.
+    // Build the where for types.
+    $wheres .= " AND n.type IN (:types) ";
+    $arguments[':types'] = $node_types;
+  }
+  $sql = "SELECT n.nid, n.title"
+         . " FROM {node} n"
+         . $joins
+         . " WHERE n.status = 1 and uid =".$user->uid
+         . $wheres
+         . " ORDER BY n.title, n.nid";
+  // Add the 'select none' option in the form.
+  $node_list[''] = t('<none>');
+  $result = db_query($sql, $arguments);
+  foreach ($result as $row) {
+    $node_list[$row->nid] = $row->title;
+  }
+  if (count($node_list) == 1) {
+    return FALSE;
+  }
+  return $node_list;
+}
+
+/**
+ * Get an array of content types for use in select forms.
+ */
+function nap_get_types() {
+  $types = node_type_get_types();
+  $type_array = array();
+  // Add the 'select none' option in the form.
+  $type_array[''] = t('<none>');
+  foreach ($types as $type) {
+    $type_array[$type->type] = $type->name;
+  }
+  if (count($type_array) == 1) {
+    return FALSE;
+  }
+  return $type_array;
+}
+
+/**
+ * Get an array of vocabularies for use in select forms.
+ *
+ * @param $vocab_list
+ *   Array of vocabularies to reject from the list.
+ */
+function nap_get_vocabs($vocab_list = array()) {
+  $vocabs = taxonomy_get_vocabularies();
+  if (array_filter($vocabs) == NULL) {
+    // No vocabs.
+    return FALSE;
+  }
+  $vocab_array = array();
+  foreach ($vocabs as $vocab) {
+    $show_vocab = FALSE;
+    if (!empty($vocab_list)) {
+      $show_vocab = in_array($vocab->vid, $vocab_list);
+    }
+    else {
+      $show_vocab = TRUE;
+    }
+    // Add the 'select none' option in the form.
+    $vocab_array[''] = t('<none>');
+    if ($show_vocab) {
+      $vocab_array[$vocab->vid] = $vocab->name;
+    }
+  }
+  return $vocab_array;
+}
+
+/**
+ * Get an array of terms for use in select forms.
+ *
+ * @param $vocab_array
+ *   Array of vocabularies to select from instead of selecting from all of them.
+ */
+function nap_get_terms($vocab_array = array()) {
+  $term_array = array();
+  // Add the 'select none' option in the form.
+  $term_array[''] = t('<none>');
+  if (array_filter($vocab_array) == NULL) {
+    // No vocab restriction, get all vocabs.
+    $vocab_array = nap_get_vocabs();
+    if ($vocab_array == FALSE) {
+      // Still no vocabs.
+      return FALSE;
+    }
+  }
+  foreach ($vocab_array as $vocab_id => $vocab_name) {
+    $tree = taxonomy_get_tree($vocab_id);
+    foreach ($tree as $term) {
+      $hyphens = "";
+      for ($i = 0; $i < $term->depth; $i++) {
+        $hyphens .= "-";
+      }
+      $term_array[$term->tid] = $hyphens . $term->name;
+    }
+  }
+  if (count($term_array) === 1) {
+    return FALSE;
+  }
+  return $term_array;
+}
+
+/**
+ * Build a list of Grant IDs for the supplied nid.
+ *
+ * These will be the nids or vids depending on whether configuration
+ * wants the purchase date or current date for NAP settings.
+ *
+ * @param $nid
+ *   A node ID.
+ * @return
+ *   Array of gids for use in access records.
+ */
+function nap_get_grants($nid) {
+
+  $use_purchase_date = variable_get('nap_use_purchase_date', 0);
+  $sql = "SELECT np.* FROM {nap_products} np";
+  $args = array();
+
+  if (!$use_purchase_date) {
+    $sql .= " WHERE entry_date IN ("
+            . "SELECT MAX(entry_date)"
+            . " FROM {nap_products}"
+            . " GROUP BY nid"
+            . ")";
+    //$args[] = $nid;
+  }
+
+  $results = db_query($sql, $args);
+
+  $gids = array();
+
+  foreach ($results as $row) {
+
+    $gid = $use_purchase_date ? $row->vid : $row->nid;
+
+    if ($row->view) {
+      $view_nids = nap_get_nids_from_view($row->view, $row->view_args);
+      if (is_array($view_nids) && in_array($nid, $view_nids)) {
+        $gids[] = $gid;
+      }
+    }
+    $nids_nids = unserialize($row->nodes);
+    $tids_nids = nap_get_nids_from_tids(unserialize($row->categories));
+    if (is_array($nids_nids) && in_array($nid, $nids_nids)) {
+      $gids[] = $gid;
+    }
+    elseif (is_array($tids_nids) && in_array($nid, $tids_nids)) {
+      $gids[] = $gid;
+    }
+  }
+
+  if (!empty($gids)) {
+    return $gids;
+  }
+
+  return FALSE;
+}
+
+/**
+ * NAP Notify.
+ *
+ * Integration modules call this to inform NAP that they are present.
+ * Then this function invokes their nap_handler hook to get more info.
+ */
+function nap_notify($op, $module) {
+
+  $handlers = variable_get('nap_handlers', array());
+
+  if ($op == 'enable') {
+
+    $handlers[$module] = module_invoke($module, 'nap_handler');
+
+    // Conflict checking.
+    $conflicts = array();
+    foreach ($handlers[$module] as $key => $value) {
+      if ($value) {
+        foreach ($handlers as $handler => $data) {
+          if ($handler != $module) {
+            if ($value == $data[$key]) {
+              $conflicts[] = array(
+                'module' => $handler,
+                'name' => $data['name'],
+                'key' => $key,
+                'value' => $value,
+              );
+            }
+          }
+        }
+      }
+    }
+    if (!empty($conflicts)) {
+      // Disable the module.
+      module_disable(array($module));
+      // Build and show conflict error message.
+      $conflict_msg = t(
+        "It appears <em>!name (!module)</em> conflicts with an existing"
+        . " module and has been disabled.  You will probably need to use either"
+        . " one or the other.",
+        array(
+          '!name' => $handlers[$module]['name'],
+          '!module' => $module,
+        )
+      );
+      if (count($conflicts) == 1) {
+        $conflict_msg .= ' ' . t("The conflict is:");
+      }
+      else {
+        $conflict_msg .= ' ' . t("The conflicts are:");
+      }
+      $conflict_msg .= "<ul>";
+      foreach ($conflicts as $conflict) {
+        $conflict_msg .= "<li>";
+        $conflict_msg .= t(
+          "<em>!name (!module)</em> also has <em>!key</em> set to"
+          . " <em>!value</em>.",
+          array(
+            '!name' => $conflict['name'],
+            '!module' => $conflict['module'],
+            '!key' => $conflict['key'],
+            '!value' => $conflict['value'],
+          )
+        );
+        $conflict_msg .= "</li>";
+      }
+      $conflict_msg .= "</ul>";
+      drupal_set_message($conflict_msg, 'error');
+      // Exit now to prevent setting this handler.
+      return;
+    }
+    else {
+      // Build and show success message.
+      $enable = "<h3>" . t($handlers[$module]['name']) . "</h3>"
+                . "<p>"
+                . t(
+                  'Get started by <a href="!settings">configuring the'
+                  . ' module</a> and <a href="!access">setting user access'
+                  . ' permissions</a>. You will see more options appear on'
+                  . ' product add/edit pages.',
+                  array(
+                    '!settings' => url(
+                      $handlers[$module]['settings path'] . '/nap'
+                    ),
+                    '!access' => url('admin/people/permissions'),
+                  )
+                )
+                . "</p>";
+      drupal_set_message($enable);
+    }
+
+  }
+  elseif ($op == 'disable') {
+
+    if (isset($handlers[$module])) {
+      unset($handlers[$module]);
+    }
+
+  }
+
+  variable_set('nap_handlers', $handlers);
+
+}
+
+/**
+ * Save data about a NAP purchase.
+ */
+function nap_save_purchase($txn_id, $uid, $product_nodes, $purchase_date = NULL) {
+  $nap_purchases = array();
+
+  // Go through each of the products purchased.
+  for ($i = 0; $i < count($product_nodes); $i++) {
+    // Easy referencing.
+    $node = &$product_nodes[$i];
+    $settings = nap_get_nap_settings($node->nid);
+    if ($settings) {
+
+      // Add the vid if it isn't already present.
+      if (!isset($node->vid)) {
+        $loaded_node = node_load($node->nid);
+        $node->vid = $loaded_node->vid;
+      }
+
+      $nap_purchase = (object)array(
+        'txn_id' => $txn_id,
+        'product_nid' => $node->nid,
+        'product_vid' => $node->vid,
+        'expiry_date' => $node->nap_recurring_date,
+      );
+      $nap_purchases[] = $nap_purchase;
+
+      drupal_write_record('nap_purchases', $nap_purchase);
+
+    }
+  }
+  if (!empty($nap_purchases)) {
+    // The transaction contains a Node Access Product.
+    if (is_null($purchase_date)) {
+      $purchase_date = REQUEST_TIME;
+    }
+
+    $nap_transaction = (object)array(
+      'txn_id' => $txn_id,
+      'uid' => $uid,
+      'purchase_date' => strftime('%Y-%m-%d %H:%M:%S', $purchase_date),
+    );
+
+    drupal_write_record('nap_transactions', $nap_transaction);
+
+    // Allow other modules to perform tasks based on this event/information.
+    module_invoke_all('nap_save_purchase', $nap_purchases, $nap_transaction);
+
+  }
+
+}
+
+/**
+ * Implements hook_node_access_explain().
+ *
+ * This gives the Devel module nice information to display when
+ * debugging node grants.
+ */
+function nap_node_access_explain($row) {
+  if (in_array($row->realm, array('nap', 'nap_author'))) {
+    foreach (array('view', 'update', 'delete') as $op) {
+      $gop = 'grant_' . $op;
+      if (!empty($row->$gop)) {
+        $ops[] = $op;
+      }
+    }
+
+    if (!empty($ops)) {
+      $do = implode('/', $ops);
+      switch ($row->realm) {
+        case 'nap':
+          $node = $use_purchase_date ? node_load(NULL, $row->gid) : node_load($row->gid);
+          return t(
+            'Users that purchased %node may !do this node',
+            array('%node' => $node->title, '%name' => $account->name, '!do' => $do)
+          );
+        case 'nap_author':
+          $account = user_load($row->gid);
+          return t(
+            'Node author %name may !do this node',
+            array('%name' => $account->name, '!do' => $do)
+          );
+      }
+    }
+
+  }
+}
+

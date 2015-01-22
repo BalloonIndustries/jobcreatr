@@ -1,0 +1,471 @@
+/**
+ * @file
+ * Page Styling
+ *
+ * Style the markup found in page.tpl.php. Also includes some styling of
+ * miscellaneous Drupal elements that appear in the $content variable, such as
+ * ul.links, .pager, .more-link, etc.
+ */
+
+
+/*
+ * Body
+ */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Open Sans', sans-serif;
+}
+
+#page-wrapper {
+}
+
+#page {
+}
+
+/*
+ * The skip-link link will be completely hidden until a user tabs to the link.
+ * See the element-focusable rule in system.base.css.
+ */
+#skip-link a,
+#skip-link a:visited {
+  display: block;
+  width: 100%;
+  padding: 2px 0 3px 0;
+  text-align: center;
+  background-color: #666;
+  color: #fff;
+}
+
+/*
+ * Header
+ */
+#header {
+}
+
+#header .section {
+}
+
+#logo /* Wrapping link for logo */ {
+  float: left; /* LTR */
+  margin: 0;
+  padding: 0;
+}
+
+#logo img {
+  vertical-align: bottom;
+  position: relative;
+  margin-top: -1em;
+  margin-right: -4em;
+}
+
+#name-and-slogan /* Wrapper for website name and slogan */ {
+  float: left;
+}
+
+h1#site-name,
+div#site-name /* The name of the website */ {
+  margin: 0;
+  font-size: 1.25em;
+  line-height: 1.5em;
+  font-family: 'Open Sans', sans-serif;
+  position: absolute;
+  margin-left: 5em;
+}
+
+#titleholder {
+margin: 0 auto;
+max-width: 63.9em;
+}
+
+#site-name a:link,
+#site-name a:visited {
+  color: #000;
+  text-decoration: none;
+}
+
+#site-name a:hover,
+#site-name a:focus {
+  text-decoration: none;
+}
+
+#site-slogan /* The slogan (or tagline) of a website */ {
+}
+
+.region-header /* Wrapper for any blocks placed in the header region */ {
+  clear: both; /* Clear the logo */
+}
+
+/*
+ * Main (container for everything else)
+ */
+#main-wrapper {
+	top: 80px;
+}
+
+#main {
+}
+
+/*
+ * Content
+ */
+#content {
+}
+
+#content .section {
+}
+
+.region-highlighted {
+}
+
+.breadcrumb /* The path to the current page in the form of a list of links */ {
+  padding-bottom: 0; /* Undo system.css */
+}
+
+h1.title, /* The title of the page */
+h2.node-title, /* Title of a piece of content when it is given in a list of content */
+h2.block-title, /* Block title */
+h2.title, /* Comment section heading */
+h2.comment-form, /* Comment form heading */
+h3.title /* Comment title */ {
+  margin: 0;
+}
+
+tr.even /* Some tables have rows marked even or odd. */ {
+  /* background-color: #eee; */ /* Drupal core uses a #eee background */
+}
+
+tr.odd {
+  /* background-color: #eee; */ /* Drupal core uses a #eee background */
+}
+
+div.messages /* Important messages (status, warning, and error) for the user. See also the declarations in messages.css. */ {
+  margin: 1.5em 0; /* Drupal core uses "6px 0" margin */
+}
+
+div.messages ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+div.status /* Normal priority messages */ {
+}
+
+div.warning,
+tr.warning /* Medium priority messages */ {
+  /* border: 1px solid #f0c020; */ /* Drupal core uses: 1px solid #f0c020 */
+}
+
+div.error,
+tr.error /* High priority messages. See also the .error declaration below. */ {
+}
+
+.error /* Errors that are separate from div.messages status messages. */ {
+  /* color: #e55; */ /* Drupal core uses a #e55 background */
+}
+
+.warning /* Warnings that are separate from div.messages status messages. */ {
+  /* color: #e09010; */ /* Drupal core uses a #e09010 background */
+}
+
+div.tabs /* See also the tabs.css file. */ {
+}
+
+.region-help /* Help text on a page */ {
+}
+
+.more-help-link /* Link to more help */ {
+}
+
+.region-content /* Wrapper for the actual page content */ {
+}
+
+ul.links /* List of links */ {
+}
+
+ul.links.inline {
+  display: block; /* Let the links be inline, but the container be a block. */
+}
+
+ul.links li {
+  padding: 0 1em 0 0; /* LTR */
+}
+
+.item-list .pager /* A list of page numbers when more than 1 page of content is available */ {
+  padding: 0;
+}
+
+.item-list .pager li /* Each page number in the pager list */ {
+  padding: 0 0.5em;
+}
+
+.feed-icon /* The link to the RSS or Atom feed for the current list of content */ {
+}
+
+.more-link /* Aggregator, blog, and forum more link */ {
+}
+
+/*
+ * First sidebar (on left in LTR languages, on right in RTL)
+ *
+ * Remember to NOT add padding or margin to your .region-sidebar-first
+ * (see the layout.css file.)
+ */
+.region-sidebar-first {
+}
+
+.region-sidebar-first .section {
+}
+
+/*
+ * Second sidebar (on right in LTR languages, on left in RTL)
+ *
+ * Remember to NOT add padding or margin to your .region-sidebar-second
+ * (see the layout.css file.)
+ */
+.region-sidebar-second {
+}
+
+.region-sidebar-second .section {
+}
+
+/*
+ * Footer
+ */
+.region-footer {
+}
+
+/*
+ * Page bottom
+ */
+.region-bottom /* Wrapper for any blocks placed in the page bottom region */ {
+}
+
+
+/*Menu system for JobCreatr Theme */
+
+/*#topheader {
+background-color: #000;
+height: 26px;
+}
+#topheader li {
+list-style-type: none;
+}
+#topheader li a {
+color: #A1A1A1;
+vertical-align: text-top;
+font-size: 0.8em;
+line-height: 1.6em;
+font-family: 'Roboto', sans-serif;
+}
+*/
+a {
+text-decoration: none;
+}
+.region-topheader {
+background-color: #000;
+height: 26px;
+}
+#block-superfish-3 {
+float: right;
+}
+#header {
+height: 90px;
+}
+
+#header-container {
+     background-color: #FFFFFF;
+    box-shadow: 0 1px 6px 1px #000000;
+	z-index: 500;
+	position: fixed;
+	width: 100%;
+	margin: 0 auto;
+
+	left: 0;
+}
+#block-superfish-2 {
+float: right;
+margin: 0.7em 0 0 0;
+}
+
+
+/* Middle Region */
+
+#midregion {
+background-color: #000;
+padding-top: 1em;
+padding-bottom: 1em;
+margin-top: -5px;
+}
+#midregion p {
+font-size: 2em;
+}
+
+.region-midregion {
+
+color: #FFF;
+margin: 0 auto;
+max-width: 63.9em;
+}
+
+/*Middle Bottom Region */
+
+.region-midbottom {
+
+}
+
+#midbottom {
+}
+.region-midbottom .odd {
+background-color: #EEF0F2;
+padding-top: 1em;
+padding-bottom: 1em;
+min-height: 3em;
+}
+
+.region-midbottom .even {
+background-color: #FFF;
+padding-top: 1em;
+padding-bottom: 1em;
+min-height: 3em;
+}
+
+.whitebottomcontent, .graybottomcontent {
+max-width: 63.9em;
+margin: 0 auto;
+}
+
+.region-midbottom .even .content, .region-midbottom .odd .content {
+max-width: 63.9em;
+margin: 0 auto;
+}
+
+
+/*Footer*/
+
+#fullfooter {
+background-color: black;
+border-top: 60px solid #222222;
+padding-top: 3em;
+padding-bottom: 3em;
+
+}
+
+.region-footer {
+max-width: 63.9em;
+margin: 0 auto;
+}
+
+#fullfooter #block-system-main-menu .content a {
+color: white;
+font-family: 'Open Sans', sans-serif;
+font-size: .85em;
+text-align: left;
+
+}
+.views-field-field-slideshow-image {
+position: relative;
+margin-left: 50em;
+}
+.views-field-body {
+position: absolute;
+margin-top: 3em;
+width: 600px;
+
+}
+.views-field-body p {
+line-height: 250%;
+}
+.region-content {
+max-width: 63.9em;
+margin: 0 auto;
+min-height: 20em;
+}
+#fullfooter #block-system-main-menu li{
+display: inline-block;
+margin-right: 4em;
+text-transform: uppercase;
+vertical-align:top;
+font-weight: bold;
+}
+#fullfooter #block-system-main-menu li ul {
+margin: 0;
+padding:0;
+}
+
+#fullfooter #block-system-main-menu li ul li {
+text-transform: capitalize;
+display: block;
+}
+
+ul li.leaf {
+list-style: none;
+margin: 0;
+ padding: 0;
+}
+
+#block-system-main-menu li ul {
+display: block;
+}
+.authortag {
+font-weight: bold;
+}
+
+
+
+/*Product View*/
+
+.view-products .views-field-title {
+text-align: center;
+}
+.view-products .fivestar-widget {
+display: inline-block;
+margin-top: .25em;
+}
+.view-products .views-field-field-rating {
+text-align: center;
+}
+
+.view-products a:visited, .view-products a {
+color: #000;
+}
+
+.view-products td {
+padding: .5em 3em .5em 0;
+}
+
+/*
+
+.view-products a:visited, .view-products a {
+color: #000;
+}
+
+.view-products tr.odd, .view-products tr.even {
+border: 1px solid #707070;
+}
+.view-products tr.odd {
+background-color: 	#989898;
+}
+.view-products tr.even {
+background-color: #C8C8C8;
+}
+.view-products td.views-field, .view-products td.views-field {
+padding: 1em 1em;
+}
+
+*/
+
+/*Course Categories*/
+
+.view-id-course_categories td {
+padding-top: 10px;
+padding-bottom: 10px;
+padding-left: 5px;
+padding-right: 5px;
+}
+
+/*Copyright*/
+
+#copyright {
+color: #888888;
+}

@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * Implements hook_nap_handler().
+ */
+function ec_nap_nap_handler() {
+  return array(
+    // The display name of this module.
+    'name' => 'Node Access Product for e-Commerce',
+    // The display name of what we're integrating.
+    'integration' => 'e-Commerce',
+    // The short name of the recurring module (FALSE for none).
+    'recurring module' => 'ec_recurring',
+    // The parent path of the settings page.
+    'settings path' => 'admin/ecsettings',
+    // The parent path of the reports page.
+    'reports path' => 'admin/store',
+  );
+}
+
+/**
+ * Implements hook_enable().
+ */
+function ec_nap_enable() {
+  drupal_load('module', 'nap');
+  nap_notify('enable', 'ec_nap');
+}
+
+/**
+ * Implements hook_disable().
+ */
+function ec_nap_disable() {
+  drupal_load('module', 'nap');
+  nap_notify('disable', 'ec_nap');
+}
+
+/**
+ * Implements hook_ec_txn_workflow().
+ */
+function ec_nap_ec_txn_workflow($txn, $orig) {
+  if (ec_store_transaction_workflow('type_code', $txn->workflow) == EC_WORKFLOW_TYPE_COMPLETE) {
+    // Work out recurring date.
+    foreach ($txn->items as $i => &$node) {
+      // Get the expiry date.
+      if ($node->schedule['expiry']) {
+        // There is an expiry date.
+        $node->nap_recurring_date = strftime('%Y-%m-%d %H:%M:%S', $node->schedule['expiry']);
+      }
+      else {
+        // No expiry date.
+        $node->nap_recurring_date = NULL;
+      }
+    }
+    $customer = $txn->customer;
+    nap_save_purchase($txn->txnid, $customer->uid, $txn->items);
+  }
+}
+
+/**
+ * Implements hook_nap_form_is_product().
+ */
+function ec_nap_nap_form_is_product($form, $form_state, $form_id) {
+  return ec_product_form_is_product($form_id, $form);
+}

@@ -1,0 +1,4 @@
+name = Jobcreatr Ubercart Changes
+description = Additional JobCreatr form settings for Ubercart
+package = Custom
+core = 7.x

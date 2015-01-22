@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * @file
+ * The Node Access Product module's install file.
+ *
+ * Node Access Product implements db schema for two reasons:
+ *	1) Product settings can change, nap can be configured to use settings as at the date of purchase
+ *     and therefore must maintain an independent record of these settings.
+ *  2) Transactions can be deleted from the ec tables by store admins in the backend.  By keeping a redundant
+ *     set of transaction records we ensure users who should have access will retain access.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function nap_schema() {
+  $schema['nap_products'] = array(
+    'description' => 'Node Access Product settings',
+    'fields' => array(
+      'entry_id' => array(
+        'description' => 'Primary identifier for these Node Access Product settings.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'The Node ID of the product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'vid' => array(
+        'description' => 'The Revision ID of the product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'categories' => array(
+        'description' => 'List of Term IDs the product will buy access to.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'nodes' => array(
+        'description' => 'List of Node IDs the product will buy access to.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+      'view' => array(
+        'description' => 'The name of the view that will select purchasable nodes.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+      'view_args' => array(
+        'description' => 'A typed string of arguments to pass to the view',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+      'entry_date' => array(
+        'description' => 'Time stamp of this entry.',
+        'mysql_type' => 'DATETIME',
+        'pgsql_type' => 'timestamp without time zone',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('entry_id'),
+  );
+
+  $schema['nap_transactions'] = array(
+    'description' => 'Keeps an internal record of NAP transactions.',
+    'fields' => array(
+      'txn_id' => array(
+        'description' => 'Transaction ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'User ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'purchase_date' => array(
+        'description' => 'Date of purchase.',
+        'mysql_type' => 'DATETIME',
+        'pgsql_type' => 'timestamp without time zone',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('txn_id'),
+  );
+
+  $schema['nap_purchases'] = array(
+    'description' => 'Keeps an internal record of NAP purchases',
+    'fields' => array(
+      'txn_id' => array(
+        'description' => 'Transaction ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'product_nid' => array(
+        'description' => 'The Node ID of the purchased product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'product_vid' => array(
+        'description' => 'The Revision ID of the purchased product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'expiry_date' => array(
+        'description' => 'Date of expiry.',
+        'mysql_type' => 'DATETIME',
+        'pgsql_type' => 'timestamp without time zone',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('txn_id', 'product_nid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nap_uninstall() {
+  variable_del('nap_use_purchase_date');
+  variable_del('nap_show_bynodes');
+  variable_del('nap_content_types');
+  variable_del('nap_taxonomy_terms');
+  variable_del('nap_show_children');
+  variable_del('nap_show_bycats');
+  variable_del('nap_show_byviews');
+  variable_del('nap_taxonomy_vocabs');
+  variable_del('nap_revoke');
+  variable_del('nap_priority');
+  variable_del('nap_traverse_children');
+  variable_del('nap_handlers');
+  variable_del('nap_author_view');
+  variable_del('nap_author_update');
+  variable_del('nap_author_delete');
+
+  // Old vars.
+  variable_del('nap_unused');
+}

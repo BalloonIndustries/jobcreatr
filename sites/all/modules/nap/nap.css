@@ -1,0 +1,16 @@
+
+fieldset.nap_fieldset h3 {
+  font-size: 100%;
+}
+
+fieldset.nap_fieldset ul {
+  font-size: 0.95em;
+}
+
+fieldset.nap_fieldset div.access,
+fieldset.nap_fieldset div.users {
+  width: 47.9%;
+  float: left;
+  margin: 0 1%;
+}
+

@@ -1,0 +1,166 @@
+.sf-menu.sf-style-whiteshadow {
+  float: left;
+  padding: 0;
+}
+.sf-menu.sf-style-whiteshadow.sf-navbar {
+  width: 100%;
+}
+.sf-menu.sf-style-whiteshadow ul {
+  padding-left: 0;
+}
+.sf-menu.sf-style-whiteshadow a {
+  color: #000;
+  padding: 0 0.4em 2.8em 0.2em;
+}
+.sf-menu.sf-style-whiteshadow a.sf-with-ul {
+  padding-right: 2.25em;
+}
+.sf-menu.sf-style-whiteshadow.rtl a.sf-with-ul {
+  padding-left: 2.25em;
+  padding-right: 1em;
+}
+.sf-menu.sf-style-whiteshadow.sf-navbar a {
+  border: 0;
+}
+.sf-menu.sf-style-whiteshadow span.sf-description {
+  color: #555555;
+  display: block;
+  font-size: 0.8em;
+  line-height: 1.5em;
+  margin: 5px 0 0 5px;
+  padding: 0;
+}
+.sf-menu.sf-style-whiteshadow li,
+.sf-menu.sf-style-whiteshadow.sf-navbar {
+  background: #FFF;
+}
+.sf-menu.sf-style-whiteshadow li {
+text-transform: uppercase;
+margin-left: 1.5em;
+padding:0 0.4em;
+overflow: hidden;
+}
+
+
+
+.sf-menu.sf-style-whiteshadow > li:hover {
+    border-bottom: 4px solid #000;
+}
+
+.sf-menu.sf-style-whiteshadow .sf-depth-2 {
+border-bottom: none;
+display: inline-block;
+}
+
+
+.sf-menu.sf-style-whiteshadow li li {
+  background: #fff;
+}
+.sf-menu.sf-style-whiteshadow li li li {
+  background: #f5f5f5;
+}
+.sf-menu.sf-style-whiteshadow.sf-navbar li ul {
+}
+.sf-menu.sf-style-whiteshadow.sf-navbar li ul li ul {
+  background-color: transparent;
+}
+/*.sf-menu.sf-style-whiteshadow .sf-sub-indicator {
+  background-image: url('../images/arrows-777777.png');
+}
+.sf-menu.sf-style-whiteshadow.rtl .sf-sub-indicator {
+  background-image: url('../images/arrows-777777-rtl.png');
+}*/
+.sf-menu.sf-style-whiteshadow ul.sf-megamenu li.sf-megamenu-wrapper ol,
+.sf-menu.sf-style-whiteshadow ul.sf-megamenu li.sf-megamenu-wrapper ol li {
+  margin: 0;
+  padding: 0;
+}
+.sf-menu.sf-style-whiteshadow ul.sf-megamenu li.sf-megamenu-wrapper a.menuparent {
+  font-weight: bold;
+}
+.sf-menu.sf-style-whiteshadow ul.sf-megamenu li.sf-megamenu-wrapper ol li.sf-megamenu-column {
+  display: inline;
+  float: left;
+  width: 12em;
+}
+.sf-menu.sf-style-whiteshadow.rtl ul.sf-megamenu li.sf-megamenu-wrapper ol li.sf-megamenu-column {
+  float: right;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-1 ul.sf-megamenu {
+  width: 12em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-2 ul.sf-megamenu {
+  width: 24em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-3 ul.sf-megamenu {
+  width: 36em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-4 ul.sf-megamenu {
+  width: 48em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-5 ul.sf-megamenu {
+  width: 60em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-6 ul.sf-megamenu {
+  width: 72em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-7 ul.sf-megamenu {
+  width: 84em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-8 ul.sf-megamenu {
+  width: 96em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-9 ul.sf-megamenu {
+  width: 108em;
+}
+.sf-menu.sf-style-whiteshadow li.sf-parent-children-10 ul.sf-megamenu {
+  width: 120em;
+}
+
+/* New Submenu Information */
+
+.sf-menu.sf-horizontal.sf-shadow ul, .sf-menu.sf-vertical.sf-shadow ul, .sf-menu.sf-navbar.sf-shadow ul ul {
+width: 100% !important;
+background-color: #f5f5f5;
+background-image: none;
+    list-style-type: none;
+    text-align: center;
+	margin-top:81px;
+
+}
+
+.sf-menu.sf-horizontal.sf-shadow ul a, .sf-menu.sf-vertical.sf-shadow ul a, .sf-menu.sf-navbar.sf-shadow ul ul a {
+position: static;
+left: 0;
+display: inline-block;
+/*background-color: #f5f5f5;*/
+/*padding-top: 81px;*/
+color: #8F8F8F;
+}
+.sf-menu.sf-horizontal.sf-shadow ul a:hover, .sf-menu.sf-vertical.sf-shadow ul a:hover, .sf-menu.sf-navbar.sf-shadow ul ul a:hover {
+color: #000;
+}
+
+.sf-menu.sf-style-whiteshadow .sf-depth-2 { 
+width: auto !important;
+background-color: #f5f5f5;
+ }
+ 
+
+.content .sf-menu li {
+  position: static;
+}
+
+.sf-menu ul {
+    text-align: center;
+}
+.content .sf-menu ul li {
+    float: none !important;
+    display: inline-block;
+	padding-top: 20px;
+	padding-bottom: 10px;
+}
+
+.sf-menu.sf-style-whiteshadow ul a {
+padding: 0;
+}

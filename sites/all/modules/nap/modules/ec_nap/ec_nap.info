@@ -1,0 +1,12 @@
+name = Node Access Product for e-Commerce
+description = "Integrates Node Access Product with e-Commerce."
+package = "Node Access Product"
+dependencies[] = nap
+dependencies[] = ec_product
+core = 7.x
+; Information added by drupal.org packaging script on 2012-08-20
+version = "7.x-1.0"
+core = "7.x"
+project = "nap"
+datestamp = "1345434128"
+

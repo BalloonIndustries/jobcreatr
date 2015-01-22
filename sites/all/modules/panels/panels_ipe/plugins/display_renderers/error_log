@@ -1,0 +1,1 @@
+[22-Oct-2014 21:08:24 America/Chicago] PHP Fatal error:  Class 'panels_renderer_editor' not found in /home3/pikeman/public_html/jobcreatr.com/sites/all/modules/panels/panels_ipe/plugins/display_renderers/panels_renderer_ipe.class.php on line 6

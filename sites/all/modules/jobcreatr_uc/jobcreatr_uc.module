@@ -1,0 +1,28 @@
+<?php
+
+// $Id$
+
+/**
+* @file
+* Module to hold my customizations to Ubercart
+*/
+
+/**
+* Implementation of hook_form_alter()
+*/
+function jobcreatr_uc_form_alter(&$form, &$form_state, $form_id) {
+if ($form_id == 'course_node_form') {
+  unset($form['base']['model']);
+  unset($form['base']['prices']['list_price']);
+  unset($form['base']['prices']['cost']);
+  unset($form['base']['shippable']);
+  unset($form['base']['weight']);
+  unset($form['base']['dimensions']['dim_length']);
+  unset($form['base']['dimensions']['dim_width']);
+  unset($form['base']['dimensions']['dim_height']);
+  unset($form['base']['dimensions']['length_units']);
+  unset($form['base']['pkg_qty']);
+  unset($form['base']['ordering']);
+  unset($form['course']['duration']);
+}
+}
