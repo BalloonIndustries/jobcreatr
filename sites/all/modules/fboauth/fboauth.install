@@ -20,6 +20,7 @@ function fboauth_install() {
 function fboauth_uninstall() {
   variable_del('fboauth_id');
   variable_del('fboauth_secret');
+  variable_del('fboauth_anon_connect');
   variable_del('fboauth_user_email');
   variable_del('fboauth_user_username');
   variable_del('fboauth_user_picture');

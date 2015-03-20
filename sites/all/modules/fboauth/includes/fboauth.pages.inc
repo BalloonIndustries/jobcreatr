@@ -28,6 +28,13 @@ function fboauth_settings_form($form, &$form_state) {
     '#default_value' => variable_get('fboauth_secret', ''),
   );
 
+  $form['fboauth_anon_connect'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow anonymous users to connect an existing unconnected drupal account to their Facebook account?'),
+    '#description' => t('Should anonymous users be able to connect an existing unconnected drupal account to a Facebook account based solely on an email address match?'),
+    '#default_value' => variable_get('fboauth_anon_connect', TRUE),
+  );
+
   $form['fboauth_basic_mapping'] = array(
     '#type' => 'fieldset',
     '#title' => t('Basic mapping'),
@@ -142,6 +149,8 @@ function fboauth_settings_form_submit($form, &$form_state) {
   variable_set('fboauth_id', $form_state['values']['fboauth_id']);
   variable_set('fboauth_secret', $form_state['values']['fboauth_secret']);
 
+  variable_set('fboauth_anon_connect', $form_state['values']['fboauth_anon_connect']);
+
   variable_set('fboauth_user_email', $form_state['values']['fboauth_user_email']);
   variable_set('fboauth_user_username', $form_state['values']['fboauth_user_username']);
   variable_set('fboauth_user_picture', $form_state['values']['fboauth_user_picture']);
@@ -182,7 +191,7 @@ function theme_fboauth_user_info($variables) {
   $fbid = fboauth_fbid_load($account->uid);
   $output = '';
   if ($fbid !== FALSE) {
-    $output .= '<p>' . t('Your account is current connected with Facebook. Currently this site has access to the following information from Facebook.') . '</p>';
+    $output .= '<p>' . t('Your account is connected with Facebook. At present, this site has access to the following information from Facebook.') . '</p>';
     $output .= theme('item_list', array('items' => array('basic' => t('Your basic information (Name, Gender, Picture, etc.)'))) + fboauth_user_connect_permissions());
     $output .= '<p>' . t('You may disconnect your account from Facebook at any time by using the Deauthorize option below. If deauthorized, you will no longer be able to use Facebook to log into this account and must use a normal password. <strong>If you have not yet set a password, you will not be able to log onto this site</strong>.') . '</p>';
     $output .= fboauth_action_display('deauth');

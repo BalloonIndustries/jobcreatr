@@ -1,0 +1,101 @@
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/!svn/ver/1055175/bad-behavior/branches/2.2/bad-behavior
+END
+screener.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/!svn/ver/828112/bad-behavior/branches/2.2/bad-behavior/screener.inc.php
+END
+functions.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/508631/bad-behavior/branches/2.2/bad-behavior/functions.inc.php
+END
+blacklist.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/697995/bad-behavior/branches/2.2/bad-behavior/blacklist.inc.php
+END
+common_tests.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/!svn/ver/1030282/bad-behavior/branches/2.2/bad-behavior/common_tests.inc.php
+END
+whitelist.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/610924/bad-behavior/branches/2.2/bad-behavior/whitelist.inc.php
+END
+index.html
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/index.html
+END
+cloudflare.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/cloudflare.inc.php
+END
+responses.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/593565/bad-behavior/branches/2.2/bad-behavior/responses.inc.php
+END
+browser.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/browser.inc.php
+END
+blackhole.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/blackhole.inc.php
+END
+post.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/!svn/ver/1055160/bad-behavior/branches/2.2/bad-behavior/post.inc.php
+END
+movabletype.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/movabletype.inc.php
+END
+banned.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/!svn/ver/580154/bad-behavior/branches/2.2/bad-behavior/banned.inc.php
+END
+core.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/!svn/ver/1055175/bad-behavior/branches/2.2/bad-behavior/core.inc.php
+END
+searchengine.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/!svn/ver/635920/bad-behavior/branches/2.2/bad-behavior/searchengine.inc.php
+END
+roundtripdns.inc.php
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/!svn/ver/423146/bad-behavior/branches/2.2/bad-behavior/roundtripdns.inc.php
+END
